@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useBoardStore } from "../store/boardStore.js";
 import { useAuthStore } from "../store/authStore.js";
 import { getSocket, joinBoard, leaveBoard } from "../socket.js";
 import ListColumn from "../components/ListColumn.jsx";
+import ActivityPanel from "../components/ActivityPanel.jsx";
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 export default function BoardView() {
   const { boardId } = useParams();
@@ -13,10 +16,17 @@ export default function BoardView() {
     boards,
     currentBoardId,
     lists,
+    taskSearch,
+    taskPage,
+    taskTotalPages,
+    tasksLoadingMore,
     fetchBoards,
     fetchBoardData,
     createList,
     clearBoard,
+    setTaskSearch,
+    fetchTasksSearch,
+    fetchMoreTasks,
     loading,
     error,
     clearError,
@@ -24,11 +34,32 @@ export default function BoardView() {
 
   const [newListTitle, setNewListTitle] = useState("");
   const [addingList, setAddingList] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [activityPanelOpen, setActivityPanelOpen] = useState(false);
+  const searchDebounceRef = useRef(null);
+  const searchInitialMount = useRef(true);
+
+  useEffect(() => {
+    if (searchInitialMount.current) {
+      searchInitialMount.current = false;
+      return;
+    }
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setTaskSearch(searchInput.trim());
+      if (boardId) fetchTasksSearch(boardId);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchInput, boardId, setTaskSearch, fetchTasksSearch]);
 
   const board = boards.find((b) => b.id === boardId) || (currentBoardId === boardId ? { id: boardId, name: "…" } : null);
 
   useEffect(() => {
     if (!boardId) return;
+    setSearchInput("");
+    searchInitialMount.current = true;
     fetchBoardData(boardId).catch(() => {});
     return () => clearBoard();
   }, [boardId, fetchBoardData, clearBoard]);
@@ -75,7 +106,28 @@ export default function BoardView() {
           </Link>
           <h1 style={styles.boardName}>{board?.name ?? "Board"}</h1>
         </div>
+        <div style={styles.headerRight}>
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search tasks…"
+            style={styles.searchInput}
+          />
+          <button
+            type="button"
+            onClick={() => setActivityPanelOpen(true)}
+            style={styles.activityBtn}
+          >
+            Activity
+          </button>
+        </div>
       </header>
+      <ActivityPanel
+        boardId={boardId}
+        isOpen={activityPanelOpen}
+        onClose={() => setActivityPanelOpen(false)}
+      />
       <main style={styles.main}>
         {error && (
           <div style={styles.error}>
@@ -115,6 +167,18 @@ export default function BoardView() {
             </>
           )}
         </div>
+        {!loading && taskTotalPages > 1 && taskPage < taskTotalPages && (
+          <div style={styles.loadMoreWrap}>
+            <button
+              type="button"
+              onClick={() => fetchMoreTasks(boardId)}
+              disabled={tasksLoadingMore}
+              style={styles.loadMoreBtn}
+            >
+              {tasksLoadingMore ? "Loading…" : "Load more tasks"}
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -141,6 +205,29 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "1rem",
+  },
+  headerRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+  },
+  searchInput: {
+    padding: "0.4rem 0.6rem",
+    border: "1px solid rgba(255,255,255,0.3)",
+    borderRadius: 6,
+    fontSize: "0.875rem",
+    width: 180,
+    background: "rgba(255,255,255,0.15)",
+    color: "#fff",
+  },
+  activityBtn: {
+    padding: "0.4rem 0.75rem",
+    background: "rgba(255,255,255,0.2)",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.4)",
+    borderRadius: 6,
+    fontSize: "0.875rem",
+    cursor: "pointer",
   },
   backLink: {
     color: "rgba(255,255,255,0.9)",
@@ -215,5 +302,19 @@ const styles = {
   muted: {
     color: "#666",
     fontSize: "0.875rem",
+  },
+  loadMoreWrap: {
+    marginTop: "1rem",
+    display: "flex",
+    justifyContent: "center",
+  },
+  loadMoreBtn: {
+    padding: "0.5rem 1rem",
+    background: "#16213e",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    fontSize: "0.875rem",
+    cursor: "pointer",
   },
 };

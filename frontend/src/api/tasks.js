@@ -7,7 +7,13 @@ export async function getTasks(boardId, opts = {}) {
   if (opts.limit) params.set("limit", opts.limit);
   if (opts.search) params.set("search", opts.search);
   const { data } = await api.get(`/api/tasks?${params}`);
-  return { tasks: data.tasks, total: data.total, totalPages: data.totalPages };
+  return {
+    tasks: data.tasks,
+    total: data.total,
+    page: data.page,
+    limit: data.limit,
+    totalPages: data.totalPages,
+  };
 }
 
 export async function createTask(listId, payload) {

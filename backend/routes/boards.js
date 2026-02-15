@@ -2,6 +2,7 @@ import express from "express";
 import { Board } from "../models/Board.js";
 import { BoardMember } from "../models/BoardMember.js";
 import { User } from "../models/User.js";
+import { ActivityLog } from "../models/ActivityLog.js";
 import { protect } from "../middleware/auth.js";
 import { requireBoardAccess } from "../middleware/boardAccess.js";
 
@@ -72,6 +73,38 @@ router.get("/:boardId/members", requireBoardAccess, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch members", error: err.message });
+  }
+});
+
+router.get("/:boardId/activity", requireBoardAccess, async (req, res) => {
+  try {
+    const boardId = req.board._id;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const total = await ActivityLog.countDocuments({ boardId });
+    const totalPages = Math.ceil(total / limit);
+    const skip = (page - 1) * limit;
+    const logs = await ActivityLog.find({ boardId })
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("userId", "name")
+      .lean();
+    res.json({
+      activities: logs.map((log) => ({
+        id: log._id,
+        userId: log.userId?._id,
+        userName: log.userId?.name ?? "Unknown",
+        action: log.action,
+        timestamp: log.timestamp,
+      })),
+      total,
+      page,
+      limit,
+      totalPages,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch activity", error: err.message });
   }
 });
 
