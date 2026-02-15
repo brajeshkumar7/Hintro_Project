@@ -147,7 +147,7 @@ There are **no pre-seeded users**. Create accounts via **Sign up** after startin
 
 **Steps:**
 
-1. Open **http://localhost:5173** and sign up with User 1 credentials.
+1. Open **https://hintro-project.onrender.com/** and sign up with User 1 credentials.
 2. Log out (or use an incognito window) and sign up with User 2 credentials.
 3. Log in as User 1, create a board, add a list and a task, and **assign the task to User 2**.
 4. Log in as User 2 (or open the app in another browser): you should see the **in-app notification** (“Demo User assigned you to …”) and can open **Assigned to me** (`/my-tasks`) to see the task.
@@ -264,16 +264,3 @@ Covers: health, auth (signup, login, me), users (list all), boards (CRUD, member
 | [docs/api-contract.md](docs/api-contract.md) | REST endpoints, request/response, auth requirements |
 | [docs/realtime-sync.md](docs/realtime-sync.md) | Socket events, rooms, consistency |
 | [docs/scalability.md](docs/scalability.md) | Scaling, WebSockets, DB, trade-offs |
-
----
-
-## Submission Checklist (For Evaluators)
-
-| Requirement | Where |
-|-------------|--------|
-| Complete project (frontend + backend) | Single repo: `frontend/` and `backend/` |
-| Detailed README with setup instructions | This file: **Local Setup (Detailed)**, **Environment Variables**, **Repository and Git** |
-| Architecture explanation | **Architecture** section above + [docs/frontend-architecture.md](docs/frontend-architecture.md), [docs/backend-architecture.md](docs/backend-architecture.md) |
-| API documentation | [docs/api-contract.md](docs/api-contract.md) |
-| Assumptions and trade-offs | **Assumptions and Trade-offs** section above + [docs/scalability.md](docs/scalability.md) |
-| Demo credentials | **Demo Credentials** section above (create via Sign up; suggested accounts listed) |
