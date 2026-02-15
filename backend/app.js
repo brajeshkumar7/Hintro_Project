@@ -8,8 +8,12 @@ import userRoutes from "./routes/users.js";
 
 const app = express();
 
+const corsOrigin = process.env.NODE_ENV === "production"
+  ? (process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim()).filter(Boolean) : true)
+  : "http://localhost:5173";
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: corsOrigin,
   credentials: true,
 }));
 app.use(express.json());

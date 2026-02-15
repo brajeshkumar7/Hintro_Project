@@ -15,10 +15,21 @@ function getTokenFromHandshake(handshake) {
   return null;
 }
 
+function getAllowedOrigins() {
+  if (process.env.NODE_ENV !== "production") {
+    return ["http://localhost:5173"];
+  }
+  if (process.env.CORS_ORIGIN) {
+    return process.env.CORS_ORIGIN.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  return true;
+}
+
 export function setupSocket(httpServer) {
   const io = new Server(httpServer, {
     cors: {
-      origin: ['http://localhost:5173'],
+      origin: getAllowedOrigins(),
+      credentials: true,
     },
   });
 

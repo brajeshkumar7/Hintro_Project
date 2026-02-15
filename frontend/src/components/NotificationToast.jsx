@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotificationStore } from "../store/notificationStore.js";
 
-const AUTO_DISMISS_MS = 6000;
+const AUTO_DISMISS_MS = 10000;
 
 export default function NotificationToast({ toast }) {
   const removeToast = useNotificationStore((s) => s.removeToast);
