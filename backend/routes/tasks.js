@@ -4,8 +4,21 @@ import { Task } from "../models/Task.js";
 import { List } from "../models/List.js";
 import { protect } from "../middleware/auth.js";
 import { getBoardIfAllowed, getListAndBoardIfAllowed } from "../middleware/boardAccess.js";
+import { logActivity } from "../services/activityLog.js";
 
 const router = express.Router();
+
+function taskPayload(t) {
+  return {
+    id: t._id,
+    listId: t.listId,
+    title: t.title,
+    description: t.description,
+    assignedTo: t.assignedTo,
+    order: t.order,
+    createdAt: t.createdAt,
+  };
+}
 
 router.use(protect);
 
@@ -49,6 +62,14 @@ router.post("/", async (req, res) => {
       description: typeof description === "string" ? description.trim() : "",
       assignedTo: assignedTo || null,
       order: nextOrder,
+    });
+    const io = req.app.get("io");
+    await logActivity(io, {
+      boardId: result.board._id,
+      userId: req.user._id,
+      userName: req.user.name,
+      action: "task_created",
+      task: taskPayload(task),
     });
     res.status(201).json({
       message: "Task created",
@@ -141,11 +162,22 @@ router.put("/:id/move", async (req, res) => {
   }
   try {
     const newOrder = typeof order === "number" ? order : task.order;
+    const fromListId = task.listId;
     const updated = await Task.findByIdAndUpdate(
       task._id,
       { $set: { listId, order: newOrder } },
       { new: true, runValidators: true }
     ).lean();
+    const io = req.app.get("io");
+    await logActivity(io, {
+      boardId: board._id,
+      userId: req.user._id,
+      userName: req.user.name,
+      action: "task_moved",
+      task: taskPayload(updated),
+      listId: updated.listId,
+      fromListId,
+    });
     res.json({
       message: "Task moved",
       task: {
@@ -180,6 +212,14 @@ router.put("/:id", async (req, res) => {
       { $set: updates },
       { new: true, runValidators: true }
     ).lean();
+    const io = req.app.get("io");
+    await logActivity(io, {
+      boardId: payload.board._id,
+      userId: req.user._id,
+      userName: req.user.name,
+      action: "task_updated",
+      task: taskPayload(updated),
+    });
     res.json({
       message: "Task updated",
       task: {
@@ -201,7 +241,16 @@ router.delete("/:id", async (req, res) => {
   const payload = await getTaskAndAssertAccess(req, res);
   if (!payload) return;
   try {
-    await Task.findByIdAndDelete(payload.task._id);
+    const taskToDelete = payload.task;
+    const io = req.app.get("io");
+    await logActivity(io, {
+      boardId: payload.board._id,
+      userId: req.user._id,
+      userName: req.user.name,
+      action: "task_deleted",
+      task: taskPayload(taskToDelete),
+    });
+    await Task.findByIdAndDelete(taskToDelete._id);
     res.json({ message: "Task deleted" });
   } catch (err) {
     res.status(500).json({ message: "Failed to delete task", error: err.message });

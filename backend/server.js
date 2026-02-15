@@ -1,3 +1,4 @@
+import http from "http";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -7,6 +8,7 @@ import authRoutes from "./routes/auth.js";
 import boardRoutes from "./routes/boards.js";
 import listRoutes from "./routes/lists.js";
 import taskRoutes from "./routes/tasks.js";
+import { setupSocket } from "./socket.js";
 
 dotenv.config();
 
@@ -30,10 +32,15 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: "Internal server error" });
 });
 
+const httpServer = http.createServer(app);
+
+const io = setupSocket(httpServer);
+app.set("io", io);
+
 async function start() {
   try {
     await connectDB();
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
   } catch (err) {
