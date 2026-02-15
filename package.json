@@ -1,0 +1,25 @@
+{
+  "name": "hintro-project",
+  "version": "1.0.0",
+  "description": "A full-stack collaborative board application with lists, tasks, real-time updates, and activity history. Users can create boards, add lists and tasks, assign members, and see changes live via WebSockets.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build": "npm install --prefix frontend && npm install --prefix backend && npm run build --prefix frontend",
+    "start": "npm run start --prefix backend"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brajeshkumar7/Hintro_Project.git"
+  },
+  "keywords": [],
+  "author": "brajeshkumar7",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/brajeshkumar7/Hintro_Project/issues"
+  },
+  "homepage": "https://github.com/brajeshkumar7/Hintro_Project#readme"
+}
