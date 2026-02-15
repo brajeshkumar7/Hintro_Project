@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useBoardStore } from "../store/boardStore.js";
+import { useAuthStore } from "../store/authStore.js";
+import { getSocket, joinBoard, leaveBoard } from "../socket.js";
 import ListColumn from "../components/ListColumn.jsx";
 
 export default function BoardView() {
   const { boardId } = useParams();
   const navigate = useNavigate();
+  const token = useAuthStore((s) => s.token);
   const {
     boards,
     currentBoardId,
@@ -33,6 +36,18 @@ export default function BoardView() {
   useEffect(() => {
     if (boards.length === 0) fetchBoards().catch(() => {});
   }, [boards.length, fetchBoards]);
+
+  useEffect(() => {
+    if (!boardId || !token) return;
+    const s = getSocket(token);
+    if (!s) return;
+    if (s.connected) {
+      joinBoard(boardId);
+    } else {
+      s.once("connect", () => joinBoard(boardId));
+    }
+    return () => leaveBoard(boardId);
+  }, [boardId, token]);
 
   async function handleAddList(e) {
     e.preventDefault();

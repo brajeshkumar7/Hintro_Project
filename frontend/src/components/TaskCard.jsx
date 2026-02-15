@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useBoardStore } from "../store/boardStore.js";
 
+const DRAG_TYPE = "application/x-board-task";
+
 export default function TaskCard({ task, listId }) {
   const members = useBoardStore((s) => s.members);
   const updateTask = useBoardStore((s) => s.updateTask);
@@ -85,8 +87,13 @@ export default function TaskCard({ task, listId }) {
     );
   }
 
+  function handleDragStart(e) {
+    e.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ taskId: task.id, fromListId: listId }));
+    e.dataTransfer.effectAllowed = "move";
+  }
+
   return (
-    <div style={styles.card}>
+    <div style={styles.card} draggable onDragStart={handleDragStart}>
       <div style={styles.body} onClick={() => setEditing(true)}>
         <span style={styles.taskTitle}>{task.title}</span>
         {task.description ? (

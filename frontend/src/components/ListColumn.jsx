@@ -2,11 +2,15 @@ import React, { useState } from "react";
 import TaskCard from "./TaskCard.jsx";
 import { useBoardStore } from "../store/boardStore.js";
 
+const DRAG_TYPE = "application/x-board-task";
+
 export default function ListColumn({ list }) {
-  const tasks = useBoardStore((s) => s.tasks.filter((t) => t.listId === list.id));
+  const tasks = useBoardStore((s) => s.tasks.filter((t) => String(t.listId) === String(list.id)));
   const createTask = useBoardStore((s) => s.createTask);
+  const moveTask = useBoardStore((s) => s.moveTask);
   const [title, setTitle] = useState("");
   const [adding, setAdding] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   async function handleAddTask(e) {
     e.preventDefault();
@@ -19,8 +23,35 @@ export default function ListColumn({ list }) {
     setAdding(false);
   }
 
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOver(true);
+  }
+
+  function handleDragLeave() {
+    setDragOver(false);
+  }
+
+  async function handleDrop(e) {
+    e.preventDefault();
+    setDragOver(false);
+    const raw = e.dataTransfer.getData(DRAG_TYPE);
+    if (!raw) return;
+    try {
+      const { taskId, fromListId } = JSON.parse(raw);
+      if (String(fromListId) === String(list.id)) return;
+      await moveTask(taskId, list.id, 0);
+    } catch (_) {}
+  }
+
   return (
-    <div style={styles.column}>
+    <div
+      style={{ ...styles.column, ...(dragOver ? styles.columnDragOver : {}) }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <h3 style={styles.listTitle}>{list.title}</h3>
       <div style={styles.taskList}>
         {tasks.map((task) => (
@@ -54,6 +85,10 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "0.5rem",
+    transition: "background 0.15s ease",
+  },
+  columnDragOver: {
+    background: "#d0d4dc",
   },
   listTitle: {
     margin: 0,

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { disconnect } from "../socket.js";
 
 export const useAuthStore = create((set) => ({
   token: null,
@@ -6,7 +7,10 @@ export const useAuthStore = create((set) => ({
 
   setAuth: (token, user) => set({ token, user }),
 
-  logout: () => set({ token: null, user: null }),
+  logout: () => {
+    disconnect();
+    set({ token: null, user: null });
+  },
 }));
 
 export function getAuthToken() {

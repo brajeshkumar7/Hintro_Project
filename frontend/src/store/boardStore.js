@@ -139,4 +139,34 @@ export const useBoardStore = create((set, get) => ({
       throw err;
     }
   },
+
+  applyTaskCreated: (task) => {
+    const { lists, tasks } = get();
+    const listIds = lists.map((l) => String(l.id));
+    if (!listIds.includes(String(task.listId))) return;
+    if (tasks.some((t) => String(t.id) === String(task.id))) return;
+    set((s) => ({ tasks: [...s.tasks, task] }));
+  },
+
+  applyTaskUpdated: (task) => {
+    const { lists } = get();
+    const listIds = lists.map((l) => String(l.id));
+    if (!listIds.includes(String(task.listId))) return;
+    set((s) => ({
+      tasks: s.tasks.map((t) => (String(t.id) === String(task.id) ? task : t)),
+    }));
+  },
+
+  applyTaskDeleted: (taskId) => {
+    set((s) => ({ tasks: s.tasks.filter((t) => String(t.id) !== String(taskId)) }));
+  },
+
+  applyTaskMoved: (task) => {
+    const { lists } = get();
+    const listIds = lists.map((l) => String(l.id));
+    if (!listIds.includes(String(task.listId))) return;
+    set((s) => ({
+      tasks: s.tasks.map((t) => (String(t.id) === String(task.id) ? task : t)),
+    }));
+  },
 }));
