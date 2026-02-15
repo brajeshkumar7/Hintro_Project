@@ -80,6 +80,23 @@ The application uses MongoDB with Mongoose. All collections use `timestamps: tru
 
 ---
 
+### Notification
+
+| Field       | Type     | Required | Notes   |
+|------------|----------|----------|---------|
+| userId     | ObjectId | Yes      | ref: User (assignee) |
+| type       | String   | Yes      | Trimmed (e.g. task_assigned) |
+| taskId     | ObjectId | Yes      | ref: Task |
+| boardId    | ObjectId | Yes      | ref: Board |
+| taskTitle  | String   | Yes      | Trimmed |
+| fromUserId | ObjectId | Yes      | ref: User (who assigned) |
+| fromUserName| String  | Yes      | Trimmed |
+| read       | Boolean  | No       | default false |
+
+- **Indexes**: `{ userId: 1, createdAt: -1 }`. Used to list notifications for a user (e.g. for a future notification center). Notifications are created when a task is assigned; the same event is emitted over Socket.io to the assignee’s user room for real-time in-app toasts.
+
+---
+
 ## Relationships
 
 - **User** ↔ **Board**: One-to-many as creator (`Board.createdBy`). Many-to-many via **BoardMember** (user can be member of many boards; board has many members).
@@ -87,6 +104,7 @@ The application uses MongoDB with Mongoose. All collections use `timestamps: tru
 - **List** ↔ **Task**: One-to-many (`Task.listId`).
 - **User** ↔ **Task**: Optional many-to-one for assignee (`Task.assignedTo`).
 - **Board** ↔ **ActivityLog**: One-to-many (`ActivityLog.boardId`). **User** ↔ **ActivityLog**: One-to-many (`ActivityLog.userId`).
+- **User** ↔ **Notification**: One-to-many as assignee (`Notification.userId`) and as assigner (`Notification.fromUserId`). **Task** and **Board** are referenced by Notification for context.
 
 No referential integrity is enforced at the database level; the application ensures that listIds belong to the board and that boardId/userId exist when writing.
 

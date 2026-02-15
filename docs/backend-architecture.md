@@ -6,10 +6,10 @@ This document describes the Node.js/Express backend structure, REST API design, 
 
 ## Express App Structure
 
-- **`app.js`**: Constructs the Express application only. It applies CORS and JSON body parsing, mounts the health route and the API routers (`/api/auth`, `/api/boards`, `/api/lists`, `/api/tasks`), and registers a global error handler that returns 500 with a generic message. It does not connect to the database or start the HTTP server. It is exported for use by `server.js` and by tests.
+- **`app.js`**: Constructs the Express application only. It applies CORS and JSON body parsing, mounts the health route and the API routers (`/api/auth`, `/api/boards`, `/api/lists`, `/api/tasks`, **`/api/users`**), and registers a global error handler that returns 500 with a generic message. It does not connect to the database or start the HTTP server. It is exported for use by `server.js` and by tests.
 - **`server.js`**: Loads environment variables, imports `app`, creates an HTTP server from it, attaches the Socket.io server via `setupSocket(httpServer)`, sets `app.set("io", io)` so routes can access the Socket.io instance, connects to MongoDB via `connectDB()`, and starts listening on `PORT`. All startup and IO attachment happen here so that the Express app itself remains testable without a live DB or socket server.
 
-Route modules live under `routes/` and are mounted on path prefixes in `app.js`. Middleware (auth, board access) is applied at router or route level. Shared logic for board/list access lives in `middleware/boardAccess.js`; activity logging and emission are in `services/activityLog.js`.
+Route modules live under `routes/` and are mounted on path prefixes in `app.js`. Middleware (auth, board access) is applied at router or route level. Shared logic for board/list access lives in `middleware/boardAccess.js`; activity logging and emission are in `services/activityLog.js`; **assignment notifications** (create Notification + emit to user room) are in **`services/notification.js`**.
 
 ---
 
@@ -40,19 +40,22 @@ Token expiry is controlled by `JWT_EXPIRES_IN` (default `7d`). The frontend stor
 ## WebSocket Integration
 
 - **Library**: Socket.io is attached to the same HTTP server that serves the Express app (`server.js`). The Socket.io instance is stored on the Express app with `app.set("io", io)` so that route handlers can call `req.app.get("io")` to emit events.
+- **User room**: On each **connection**, after authentication, the server joins the socket to the room **`user:<userId>`** so that user can receive **assignment notifications** without being on a specific board.
 - **Events from client**: 
   - `join_board`: Payload is a board ID. Server checks board access via `getBoardIfAllowed(socket.user._id, boardId)` and, on success, joins the socket to the room `board:<boardId>`. Optional callback reports success or failure.
   - `leave_board`: Payload is a board ID. Socket leaves the room `board:<boardId>`.
-- **Events to client**: After task create/update/delete/move, the route calls `logActivity(io, { boardId, userId, userName, action, task, listId?, fromListId? })`. The service writes to the `ActivityLog` collection and emits to the room `board:<boardId>` one of: `task:created`, `task:updated`, `task:deleted`, `task:moved`, with a payload containing `action`, `userId`, `userName`, `timestamp`, `task`, and optionally `listId`/`fromListId`. Only clients that have joined that board room receive these events.
+- **Events to client**: 
+  - **Board room**: After task create/update/delete/move, the route calls `logActivity(io, { boardId, userId, userName, action, task, listId?, fromListId? })`. The service writes to the `ActivityLog` collection and emits to the room `board:<boardId>` one of: `task:created`, `task:updated`, `task:deleted`, `task:moved`, with a payload containing `action`, `userId`, `userName`, `timestamp`, `task`, and optionally `listId`/`fromListId`. Only clients that have joined that board room receive these events.
+  - **User room (notifications)**: When a task is created or updated with an `assignedTo` user (and the assignee is not the same as the assigner), the route calls **`notifyTaskAssigned(io, { assigneeId, taskId, taskTitle, boardId, boardName, fromUserId, fromUserName })`**. The service creates a **Notification** document and emits **`task_assigned`** to the room **`user:<assigneeId>`** with payload `type`, `taskId`, `taskTitle`, `boardId`, `boardName`, `fromUserId`, `fromUserName`. Only the assignee’s socket(s) receive this event.
 
-CORS for Socket.io is configured to allow all origins in the current implementation.
+CORS for Socket.io is configurable (e.g. `CORS_ORIGIN` in production); see `server.js` / `socket.js`.
 
 ---
 
 ## MongoDB Schema Usage
 
 - **Connection**: A single Mongoose connection is established in `db/connect.js` using `MONGODB_URI`. Models are loaded via `models/index.js` before the server listens.
-- **Models**: User (auth, password hash); Board (name, createdBy); BoardMember (boardId, userId); List (boardId, title, order); Task (listId, title, description, assignedTo, order); ActivityLog (boardId, userId, action, timestamp). All use `timestamps: true`. Relationships are by ObjectId references; no embedding of full documents. See `docs/database-schema.md` for details and indexes.
-- **Usage in routes**: Auth routes use User directly. Board routes use Board, BoardMember, User, and ActivityLog. List routes use List with board access enforced. Task routes use Task and List, and resolve board access via the list’s boardId. The activity log service uses ActivityLog and the Socket.io instance only; it does not perform HTTP responses.
+- **Models**: User (auth, password hash); Board (name, createdBy); BoardMember (boardId, userId); List (boardId, title, order); Task (listId, title, description, assignedTo, order); ActivityLog (boardId, userId, action, timestamp); **Notification** (userId, type, taskId, boardId, taskTitle, fromUserId, fromUserName, read). All use `timestamps: true`. Relationships are by ObjectId references; no embedding of full documents. See `docs/database-schema.md` for details and indexes.
+- **Usage in routes**: Auth routes use User directly. **Users route** (`/api/users`) uses User to list all users (id, name, email) for the assignee dropdown. Board routes use Board, BoardMember, User, and ActivityLog. List routes use List with board access enforced. Task routes use Task and List, resolve board access via the list’s boardId, and call **notifyTaskAssigned** when a task is assigned. The activity log service uses ActivityLog and the Socket.io instance; the **notification service** uses the Notification model and emits to the user room.
 
 No application logic was changed; this document reflects the implemented backend.

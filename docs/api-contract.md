@@ -54,6 +54,24 @@ Base path: `/api/auth`
 
 ---
 
+## Users
+
+Base path: `/api/users`. All routes require auth.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET    | /    | Yes  | List all users (for assignee dropdown) |
+
+### GET /api/users
+
+**Success (200):** `{ "users": [ { "id", "name", "email" }, ... ] }`
+
+Returns all users in the platform (id, name, email), sorted by name. Used by the frontend to populate the **assignee dropdown** when creating or editing a task so any user can be assigned, not only board members.
+
+**Errors:** 401, 500
+
+---
+
 ## Boards
 
 Base path: `/api/boards`. All routes require auth.
@@ -130,13 +148,14 @@ Base path: `/api/lists`. All routes require auth.
 
 Base path: `/api/tasks`. All routes require auth.
 
-| Method | Path        | Auth | Description      |
-|--------|-------------|------|------------------|
-| POST   | /           | Yes  | Create task      |
-| GET    | /           | Yes  | List tasks       |
-| PUT    | /:id        | Yes  | Update task      |
-| PUT    | /:id/move   | Yes  | Move task        |
-| DELETE | /:id        | Yes  | Delete task      |
+| Method | Path                 | Auth | Description            |
+|--------|----------------------|------|------------------------|
+| POST   | /                    | Yes  | Create task            |
+| GET    | /                    | Yes  | List tasks (by board)  |
+| GET    | /assigned-to-me       | Yes  | List tasks assigned to current user |
+| PUT    | /:id                 | Yes  | Update task            |
+| PUT    | /:id/move            | Yes  | Move task              |
+| DELETE | /:id                 | Yes  | Delete task            |
 
 ### POST /api/tasks
 
@@ -155,6 +174,18 @@ Base path: `/api/tasks`. All routes require auth.
 **Success (200):** `{ "tasks": [ { "id", "listId", "title", "description", "assignedTo", "order", "createdAt" }, ... ], "total", "page", "limit", "totalPages" }`
 
 **Errors:** 400 (boardId missing), 403/404, 500
+
+---
+
+### GET /api/tasks/assigned-to-me
+
+**Query:** `page` (default 1), `limit` (default 20, max 50)
+
+**Success (200):** `{ "tasks": [ { "id", "listId", "title", "description", "assignedTo", "order", "createdAt", "boardId", "boardName", "listTitle" }, ... ], "total", "page", "limit", "totalPages" }`
+
+Returns tasks where `assignedTo` equals the current user’s ID, with board/list context (`boardId`, `boardName`, `listTitle`) for the “Assigned to me” view. Sorted by `updatedAt` descending.
+
+**Errors:** 401, 500
 
 ---
 
@@ -189,4 +220,4 @@ Base path: `/api/tasks`. All routes require auth.
 ## Auth Requirements Summary
 
 - **No auth:** `GET /health`, `POST /api/auth/signup`, `POST /api/auth/login`.
-- **Bearer JWT required:** All other endpoints under `/api/auth`, `/api/boards`, `/api/lists`, `/api/tasks`. Missing or invalid token returns 401.
+- **Bearer JWT required:** All other endpoints under `/api/auth`, `/api/users`, `/api/boards`, `/api/lists`, `/api/tasks`. Missing or invalid token returns 401.

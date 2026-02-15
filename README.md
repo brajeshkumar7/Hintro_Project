@@ -15,9 +15,12 @@ The application consists of a **React (Vite)** frontend and a **Node.js (Express
 - **Authentication**: Signup, login, JWT-based sessions, protected routes, auth state persisted in localStorage
 - **Boards**: Create boards, list boards (creator + members), view board members
 - **Lists**: Create lists per board, list lists by board (ordered)
-- **Tasks**: Create, update, delete, and move tasks between lists; assign tasks to board members; search and paginate tasks
+- **Tasks**: Create, update, delete, and move tasks between lists; assign tasks to **any user on the platform** (not only board members); search and paginate tasks
+- **Assignee dropdown**: When creating or editing a task, the assignee select lists **all users** on the platform (from `GET /api/users`). Board members are still used for display context where needed; the dropdown is populated with the full user list so any user can be assigned.
+- **Assigned to me**: A dedicated **“Assigned to me”** view (`/my-tasks`) lists all tasks assigned to the current user across all boards. Each item shows task title, description, board name, list name, and a link to open the board. Pagination is supported.
+- **Notifications**: When a task is assigned to you (on create or update), the backend creates a `Notification` record and emits a **`task_assigned`** Socket.io event to your private room. The frontend shows an **in-app toast** (e.g. “X assigned you to ‘Task title’ on board ‘Board name’”) with an optional “View board” link. The socket connects on any protected route so you receive notifications regardless of which page you’re on.
 - **Activity**: Per-board activity feed (task created/updated/deleted/moved) with pagination
-- **Real-time**: Socket.io rooms per board; task mutations emit events so all viewers of a board see updates without refresh
+- **Real-time**: Socket.io rooms per board for task mutations; per-user rooms for assignment notifications; task mutations emit events so all viewers of a board see updates without refresh
 - **Drag-and-drop**: Move tasks between list columns in the UI; backend move API and socket event keep state in sync
 
 ---
@@ -81,6 +84,7 @@ App runs at **http://localhost:5173**.
 | `MONGODB_URI` | Yes | MongoDB connection string |
 | `JWT_SECRET` | Yes | Secret for signing JWTs |
 | `JWT_EXPIRES_IN` | No | JWT expiry (default: `7d`) |
+| `CORS_ORIGIN` | No | Production: comma-separated origins for CORS and Socket.io (e.g. `https://yourapp.onrender.com`). If unset, all origins are allowed so same-origin deploy works and notifications can connect. |
 
 ### Frontend (`frontend/.env`)
 
@@ -112,22 +116,24 @@ There are no seeded demo users. After starting backend and frontend:
 │   ├── middleware/
 │   │   ├── auth.js          # JWT protect middleware
 │   │   └── boardAccess.js   # Board membership / ownership checks
-│   ├── models/              # Mongoose schemas (User, Board, BoardMember, List, Task, ActivityLog)
+│   ├── models/              # Mongoose schemas (User, Board, BoardMember, List, Task, ActivityLog, Notification)
 │   ├── routes/
 │   │   ├── auth.js          # signup, login, me
 │   │   ├── boards.js        # boards CRUD, members, activity
 │   │   ├── lists.js         # lists by board, create list
-│   │   └── tasks.js         # tasks CRUD, move, pagination, search
+│   │   ├── tasks.js         # tasks CRUD, move, assigned-to-me, pagination, search
+│   │   └── users.js         # list all users (for assignee dropdown)
 │   ├── services/
-│   │   └── activityLog.js   # Persist activity + emit to Socket room
-│   └── socket.js            # Socket.io server, auth, join_board / leave_board
+│   │   ├── activityLog.js   # Persist activity + emit to Socket room
+│   │   └── notification.js  # Create Notification + emit task_assigned to user room
+│   └── socket.js            # Socket.io server, auth, user room, join_board / leave_board
 ├── frontend/
 │   └── src/
-│       ├── api/             # Axios instance + boards, lists, tasks, auth
-│       ├── components/       # ProtectedRoute, ListColumn, TaskCard, ActivityPanel
-│       ├── pages/            # Home, BoardView, Login, Signup
-│       ├── store/            # authStore, boardStore (Zustand)
-│       ├── socket.js         # Socket.io client, join/leave board, event → store
+│       ├── api/             # Axios instance + boards, lists, tasks, users, auth
+│       ├── components/      # ProtectedRoute, ListColumn, TaskCard, ActivityPanel, ToastContainer, NotificationToast
+│       ├── pages/           # Home, BoardView, AssignedToMe, Login, Signup
+│       ├── store/           # authStore, boardStore, notificationStore (Zustand)
+│       ├── socket.js        # Socket.io client, connect on auth, join/leave board, task_assigned → toast
 │       ├── App.jsx
 │       └── main.jsx
 └── docs/                     # Architecture and API documentation
@@ -137,8 +143,8 @@ There are no seeded demo users. After starting backend and frontend:
 
 ## How Real-Time Updates Work
 
-1. **Backend**: On task create/update/delete/move, the route calls `logActivity(io, { boardId, userId, action, task, ... })`, which writes a row to the `ActivityLog` collection and emits to the Socket.io room `board:<boardId>` (e.g. `task:created`, `task:updated`, `task:deleted`, `task:moved`).
-2. **Frontend**: When the user opens a board, the client connects with the JWT and emits `join_board` with that board’s ID. The server validates board access and joins the socket to the room. The client listens for `task:created`, `task:updated`, `task:deleted`, `task:moved` and updates the Zustand board store (e.g. add/update/remove task in the current list). The UI re-renders from the store, so all viewers of the same board see changes without refreshing.
+1. **Backend**: On task create/update/delete/move, the route calls `logActivity(io, { boardId, userId, action, task, ... })`, which writes to the `ActivityLog` collection and emits to the Socket.io room `board:<boardId>` (e.g. `task:created`, `task:updated`, `task:deleted`, `task:moved`). When a task is assigned to a user (create or update with `assignedTo`), the route also calls `notifyTaskAssigned(io, { assigneeId, taskId, taskTitle, boardId, boardName, fromUserId, fromUserName })`, which creates a `Notification` document and emits `task_assigned` to the room `user:<assigneeId>`.
+2. **Frontend**: The socket is created when the user is on any protected route (e.g. Home or a board). The server joins each connected socket to a private room `user:<userId>` so the user can receive assignment notifications. When the user opens a board, the client emits `join_board` with that board’s ID; the server joins the socket to `board:<boardId>`. The client listens for `task:created`, `task:updated`, `task:deleted`, `task:moved` and updates the board store, and for `task_assigned` it adds a toast via the notification store. The UI re-renders from the store, so all viewers of the same board see changes without refreshing, and the assignee sees a notification toast.
 
 Details: see `docs/realtime-sync.md`.
 
