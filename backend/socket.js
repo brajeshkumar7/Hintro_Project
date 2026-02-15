@@ -18,7 +18,7 @@ function getTokenFromHandshake(handshake) {
 export function setupSocket(httpServer) {
   const io = new Server(httpServer, {
     cors: {
-      origin: "*",
+      origin: ['http://localhost:5173'],
     },
   });
 
@@ -65,7 +65,7 @@ export function setupSocket(httpServer) {
       }
     });
 
-    socket.on("disconnect", () => {});
+    socket.on("disconnect", () => { });
   });
 
   return io;
