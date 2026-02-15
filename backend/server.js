@@ -4,6 +4,9 @@ import dotenv from "dotenv";
 import { connectDB } from "./db/connect.js";
 import "./models/index.js";
 import authRoutes from "./routes/auth.js";
+import boardRoutes from "./routes/boards.js";
+import listRoutes from "./routes/lists.js";
+import taskRoutes from "./routes/tasks.js";
 
 dotenv.config();
 
@@ -18,6 +21,9 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/boards", boardRoutes);
+app.use("/api/lists", listRoutes);
+app.use("/api/tasks", taskRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
