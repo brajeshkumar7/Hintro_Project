@@ -107,6 +107,9 @@ export default function BoardView() {
           <h1 style={styles.boardName}>{board?.name ?? "Board"}</h1>
         </div>
         <div style={styles.headerRight}>
+          <Link to="/my-tasks" style={styles.myTasksLink}>
+            Assigned to me
+          </Link>
           <input
             type="text"
             value={searchInput}
@@ -233,6 +236,14 @@ const styles = {
     color: "rgba(255,255,255,0.9)",
     textDecoration: "none",
     fontSize: "0.875rem",
+  },
+  myTasksLink: {
+    color: "rgba(255,255,255,0.9)",
+    textDecoration: "none",
+    fontSize: "0.875rem",
+    padding: "0.35rem 0.6rem",
+    background: "rgba(255,255,255,0.1)",
+    borderRadius: 6,
   },
   boardName: {
     margin: 0,

@@ -5,6 +5,7 @@ import { List } from "../models/List.js";
 import { protect } from "../middleware/auth.js";
 import { getBoardIfAllowed, getListAndBoardIfAllowed } from "../middleware/boardAccess.js";
 import { logActivity } from "../services/activityLog.js";
+import { notifyTaskAssigned } from "../services/notification.js";
 
 const router = express.Router();
 
@@ -21,6 +22,52 @@ function taskPayload(t) {
 }
 
 router.use(protect);
+
+router.get("/assigned-to-me", async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+
+    const total = await Task.countDocuments({ assignedTo: userId });
+    const totalPages = Math.ceil(total / limit);
+    const skip = (page - 1) * limit;
+
+    const tasks = await Task.find({ assignedTo: userId })
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({ path: "listId", select: "title boardId", populate: { path: "boardId", select: "name _id" } })
+      .lean();
+
+    const tasksWithContext = tasks.map((t) => {
+      const list = t.listId;
+      const board = list?.boardId;
+      return {
+        id: t._id,
+        listId: t.listId?._id ?? t.listId,
+        title: t.title,
+        description: t.description,
+        assignedTo: t.assignedTo,
+        order: t.order,
+        createdAt: t.createdAt,
+        boardId: board?._id ?? null,
+        boardName: board?.name ?? "",
+        listTitle: list?.title ?? "",
+      };
+    });
+
+    res.json({
+      tasks: tasksWithContext,
+      total,
+      page,
+      limit,
+      totalPages,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch assigned tasks", error: err.message });
+  }
+});
 
 async function getTaskAndAssertAccess(req, res) {
   const taskId = req.params.id;
@@ -71,6 +118,17 @@ router.post("/", async (req, res) => {
       action: "task_created",
       task: taskPayload(task),
     });
+    if (task.assignedTo) {
+      await notifyTaskAssigned(io, {
+        assigneeId: task.assignedTo,
+        taskId: task._id,
+        taskTitle: task.title,
+        boardId: result.board._id,
+        boardName: result.board.name,
+        fromUserId: req.user._id,
+        fromUserName: req.user.name,
+      });
+    }
     res.status(201).json({
       message: "Task created",
       task: {
@@ -198,7 +256,7 @@ router.put("/:id/move", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const payload = await getTaskAndAssertAccess(req, res);
   if (!payload) return;
-  const { task } = payload;
+  const { task, board } = payload;
   try {
     const { title, description, assignedTo, order } = req.body;
     const updates = {};
@@ -207,6 +265,9 @@ router.put("/:id", async (req, res) => {
     if (assignedTo !== undefined) updates.assignedTo = assignedTo || null;
     if (typeof order === "number") updates.order = order;
 
+    const previousAssignedTo = task.assignedTo ? task.assignedTo.toString() : null;
+    const newAssignedTo = updates.assignedTo !== undefined ? (updates.assignedTo ? updates.assignedTo.toString() : null) : previousAssignedTo;
+
     const updated = await Task.findByIdAndUpdate(
       task._id,
       { $set: updates },
@@ -214,12 +275,23 @@ router.put("/:id", async (req, res) => {
     ).lean();
     const io = req.app.get("io");
     await logActivity(io, {
-      boardId: payload.board._id,
+      boardId: board._id,
       userId: req.user._id,
       userName: req.user.name,
       action: "task_updated",
       task: taskPayload(updated),
     });
+    if (newAssignedTo && newAssignedTo !== previousAssignedTo) {
+      await notifyTaskAssigned(io, {
+        assigneeId: updated.assignedTo,
+        taskId: updated._id,
+        taskTitle: updated.title,
+        boardId: board._id,
+        boardName: board.name,
+        fromUserId: req.user._id,
+        fromUserName: req.user.name,
+      });
+    }
     res.json({
       message: "Task updated",
       task: {

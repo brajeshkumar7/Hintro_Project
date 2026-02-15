@@ -16,6 +16,20 @@ export async function getTasks(boardId, opts = {}) {
   };
 }
 
+export async function getTasksAssignedToMe(opts = {}) {
+  const params = new URLSearchParams();
+  if (opts.page) params.set("page", opts.page);
+  if (opts.limit) params.set("limit", opts.limit);
+  const { data } = await api.get(`/api/tasks/assigned-to-me?${params}`);
+  return {
+    tasks: data.tasks,
+    total: data.total,
+    page: data.page,
+    limit: data.limit,
+    totalPages: data.totalPages,
+  };
+}
+
 export async function createTask(listId, payload) {
   const { data } = await api.post("/api/tasks", {
     listId,

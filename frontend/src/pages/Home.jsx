@@ -42,11 +42,16 @@ export default function Home() {
     <div style={styles.container}>
       <header style={styles.header}>
         <h1 style={styles.title}>Boards</h1>
-        <div style={styles.userRow}>
+        <div style={styles.navRow}>
+          <Link to="/my-tasks" style={styles.myTasksLink}>
+            Assigned to me
+          </Link>
+          <div style={styles.userRow}>
           <span style={styles.userName}>{user?.name || user?.email}</span>
           <button type="button" onClick={handleLogout} style={styles.logoutBtn}>
             Log out
           </button>
+          </div>
         </div>
       </header>
       <main style={styles.main}>
@@ -109,6 +114,20 @@ const styles = {
     margin: 0,
     fontSize: "1.25rem",
     fontWeight: 700,
+  },
+  navRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "1rem",
+  },
+  myTasksLink: {
+    padding: "0.4rem 0.75rem",
+    background: "rgba(255,255,255,0.15)",
+    color: "#fff",
+    textDecoration: "none",
+    borderRadius: 6,
+    fontSize: "0.875rem",
+    border: "1px solid rgba(255,255,255,0.3)",
   },
   userRow: {
     display: "flex",

@@ -44,6 +44,9 @@ export function setupSocket(httpServer) {
   });
 
   io.on("connection", (socket) => {
+    const userRoom = "user:" + socket.user._id;
+    socket.join(userRoom);
+
     socket.on(EVENT_JOIN_BOARD, async (boardId, callback) => {
       if (!boardId) {
         if (typeof callback === "function") callback({ ok: false, message: "Board ID is required" });

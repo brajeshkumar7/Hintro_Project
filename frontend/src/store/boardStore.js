@@ -2,6 +2,7 @@ import { create } from "zustand";
 import * as boardsApi from "../api/boards.js";
 import * as listsApi from "../api/lists.js";
 import * as tasksApi from "../api/tasks.js";
+import * as usersApi from "../api/users.js";
 
 const TASK_PAGE_SIZE = 30;
 
@@ -11,6 +12,7 @@ export const useBoardStore = create((set, get) => ({
   lists: [],
   tasks: [],
   members: [],
+  allUsers: [],
   taskPage: 1,
   taskTotal: 0,
   taskTotalPages: 0,
@@ -50,6 +52,7 @@ export const useBoardStore = create((set, get) => ({
       lists: [],
       tasks: [],
       members: [],
+      allUsers: [],
       taskPage: 1,
       taskTotal: 0,
       taskTotalPages: 0,
@@ -79,12 +82,28 @@ export const useBoardStore = create((set, get) => ({
         taskTotalPages: taskResult?.totalPages ?? 0,
         loading: false,
       });
+      try {
+        const allUsers = await usersApi.getUsers();
+        set((s) => ({ ...s, allUsers: Array.isArray(allUsers) ? allUsers : [] }));
+      } catch (_) {
+        set((s) => ({ ...s, allUsers: [] }));
+      }
     } catch (err) {
       set({
         error: err.response?.data?.message || "Failed to load board",
         loading: false,
       });
       throw err;
+    }
+  },
+
+  fetchAllUsers: async () => {
+    try {
+      const allUsers = await usersApi.getUsers();
+      set({ allUsers: Array.isArray(allUsers) ? allUsers : [] });
+      return allUsers;
+    } catch (err) {
+      return [];
     }
   },
 

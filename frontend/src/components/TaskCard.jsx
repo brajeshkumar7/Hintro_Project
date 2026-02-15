@@ -4,7 +4,9 @@ import { useBoardStore } from "../store/boardStore.js";
 const DRAG_TYPE = "application/x-board-task";
 
 export default function TaskCard({ task, listId }) {
+  const allUsers = useBoardStore((s) => s.allUsers);
   const members = useBoardStore((s) => s.members);
+  const fetchAllUsers = useBoardStore((s) => s.fetchAllUsers);
   const updateTask = useBoardStore((s) => s.updateTask);
   const deleteTask = useBoardStore((s) => s.deleteTask);
   const [editing, setEditing] = useState(false);
@@ -13,7 +15,13 @@ export default function TaskCard({ task, listId }) {
   const [assignedTo, setAssignedTo] = useState(task.assignedTo ? String(task.assignedTo) : "");
   const [saving, setSaving] = useState(false);
 
-  const assignedUser = members.find((m) => String(m.id) === String(task.assignedTo));
+  const assigneeList = allUsers.length > 0 ? allUsers : members;
+  const assignedUser = assigneeList.find((u) => String(u.id) === String(task.assignedTo));
+
+  function openEdit() {
+    setEditing(true);
+    if (allUsers.length === 0) fetchAllUsers();
+  }
 
   async function handleSave(e) {
     e.preventDefault();
@@ -68,9 +76,9 @@ export default function TaskCard({ task, listId }) {
             style={styles.select}
           >
             <option value="">Unassigned</option>
-            {members.map((m) => (
-              <option key={m.id} value={String(m.id)}>
-                {m.name}
+            {assigneeList.map((u) => (
+              <option key={u.id} value={String(u.id)}>
+                {u.name}
               </option>
             ))}
           </select>
@@ -94,7 +102,7 @@ export default function TaskCard({ task, listId }) {
 
   return (
     <div style={styles.card} draggable onDragStart={handleDragStart}>
-      <div style={styles.body} onClick={() => setEditing(true)}>
+      <div style={styles.body} onClick={openEdit}>
         <span style={styles.taskTitle}>{task.title}</span>
         {task.description ? (
           <p style={styles.taskDesc}>{task.description}</p>
@@ -108,7 +116,7 @@ export default function TaskCard({ task, listId }) {
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            setEditing(true);
+            openEdit();
           }}
           style={styles.iconBtn}
           title="Edit"

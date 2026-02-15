@@ -4,3 +4,4 @@ export { BoardMember } from "./BoardMember.js";
 export { List } from "./List.js";
 export { Task } from "./Task.js";
 export { ActivityLog } from "./ActivityLog.js";
+export { Notification } from "./Notification.js";
