@@ -1,10 +1,11 @@
 import http from "http";
+import path from "path";
 import dotenv from "dotenv";
+import express from "express";
 import { connectDB } from "./db/connect.js";
 import "./models/index.js";
 import app from "./app.js";
 import { setupSocket } from "./socket.js";
-import path from 'path';
 
 dotenv.config();
 
