@@ -7,11 +7,12 @@ export default function Login() {
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
   const setAuth = useAuthStore((s) => s.setAuth);
-  if (token) return <Navigate to="/" replace />;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  if (token) return <Navigate to="/" replace />;
 
   async function handleSubmit(e) {
     e.preventDefault();

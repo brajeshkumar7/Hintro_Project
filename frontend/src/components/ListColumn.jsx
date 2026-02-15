@@ -1,11 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import TaskCard from "./TaskCard.jsx";
 import { useBoardStore } from "../store/boardStore.js";
 
 const DRAG_TYPE = "application/x-board-task";
 
 export default function ListColumn({ list }) {
-  const tasks = useBoardStore((s) => s.tasks.filter((t) => String(t.listId) === String(list.id)));
+  const tasksFromStore = useBoardStore((s) => s.tasks);
+  const listId = list?.id;
+  const tasks = useMemo(
+    () => (tasksFromStore || []).filter((t) => String(t.listId) === String(listId)),
+    [tasksFromStore, listId]
+  );
   const createTask = useBoardStore((s) => s.createTask);
   const moveTask = useBoardStore((s) => s.moveTask);
   const [title, setTitle] = useState("");

@@ -201,7 +201,11 @@ export const useBoardStore = create((set, get) => ({
     set({ error: null });
     try {
       const task = await tasksApi.createTask(listId, payload);
-      set((s) => ({ tasks: [...s.tasks, task] }));
+      set((s) => {
+        const exists = s.tasks.some((t) => String(t.id) === String(task.id));
+        if (exists) return { tasks: s.tasks.map((t) => (String(t.id) === String(task.id) ? task : t)) };
+        return { tasks: [...s.tasks, task] };
+      });
       return task;
     } catch (err) {
       const msg = err.response?.data?.message || "Failed to create task";
