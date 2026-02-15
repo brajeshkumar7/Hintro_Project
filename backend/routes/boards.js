@@ -1,7 +1,9 @@
 import express from "express";
 import { Board } from "../models/Board.js";
 import { BoardMember } from "../models/BoardMember.js";
+import { User } from "../models/User.js";
 import { protect } from "../middleware/auth.js";
+import { requireBoardAccess } from "../middleware/boardAccess.js";
 
 const router = express.Router();
 
@@ -52,6 +54,24 @@ router.get("/", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch boards", error: err.message });
+  }
+});
+
+router.get("/:boardId/members", requireBoardAccess, async (req, res) => {
+  try {
+    const boardId = req.board._id;
+    const board = await Board.findById(boardId).lean();
+    const memberEntries = await BoardMember.find({ boardId }).select("userId").lean();
+    const userIds = [board.createdBy, ...memberEntries.map((m) => m.userId)];
+    const uniqueIds = [...new Set(userIds.map((id) => id.toString()))];
+    const users = await User.find({ _id: { $in: uniqueIds } })
+      .select("_id name email")
+      .lean();
+    res.json({
+      members: users.map((u) => ({ id: u._id, name: u.name, email: u.email })),
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch members", error: err.message });
   }
 });
 
