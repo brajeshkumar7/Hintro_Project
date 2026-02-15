@@ -1,12 +1,32 @@
 # Hintro – Full-Stack Board & Task Application
 
-A full-stack collaborative board application with lists, tasks, real-time updates, and activity history. Users can create boards, add lists and tasks, assign members, and see changes live via WebSockets.
+A full-stack collaborative board application with lists, tasks, real-time updates, activity history, task assignment to any user, in-app notifications, and an "Assigned to me" view. Users can create boards, add lists and tasks, assign tasks to any platform user, and see changes live via WebSockets.
 
 ---
 
 ## Project Overview
 
-The application consists of a **React (Vite)** frontend and a **Node.js (Express)** backend. Data is stored in **MongoDB** and real-time events are delivered via **Socket.io**. Authentication is JWT-based; boards support multiple members and task assignment. Activity for each board is logged and exposed via a paginated API.
+The application consists of a **React (Vite)** frontend and a **Node.js (Express)** backend in a single repository. Data is stored in **MongoDB** and real-time events are delivered via **Socket.io**. Authentication is JWT-based; boards support multiple members and task assignment. Activity for each board is logged and exposed via a paginated API. Full **architecture**, **API**, and **scalability** documentation are in the `docs/` folder.
+
+---
+
+## Repository and Git
+
+This project is a **complete monorepo** (frontend + backend) ready to push to a Git repository.
+
+**Push to your Git repository:**
+
+```bash
+# From the project root (Hintro Project)
+git init
+git add .
+git commit -m "Initial commit: Hintro full-stack board app (frontend + backend)"
+git remote add origin <your-repo-url>
+git branch -M main
+git push -u origin main
+```
+
+Ensure `.env` files are not committed (they are listed in `.gitignore`). Copy `backend/.env.example` and `frontend/.env.example` to `.env` locally and set values as described in **Environment Variables** below.
 
 ---
 
@@ -40,36 +60,56 @@ The application consists of a **React (Vite)** frontend and a **Node.js (Express
 
 ---
 
-## Local Setup
+## Local Setup (Detailed)
 
 ### Prerequisites
 
-- Node.js 18+
-- MongoDB (connection string; e.g. Atlas or local)
+- **Node.js** 18 or higher  
+- **MongoDB** connection string (e.g. [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) or local instance)
 
-### Backend
+### Step 1: Backend
 
 ```bash
 cd backend
 cp .env.example .env
-# Edit .env: set MONGODB_URI and JWT_SECRET
+```
+
+Edit `backend/.env` and set:
+
+- `MONGODB_URI` – your MongoDB connection string (required)
+- `JWT_SECRET` – any long random string (required)
+
+Then:
+
+```bash
 npm install
 npm start
 ```
 
-Server runs at **http://localhost:5000** (or `PORT` from `.env`).
+The server runs at **http://localhost:5000** (or `PORT` from `.env`). You should see a message like `Server running on http://localhost:5000`.
 
-### Frontend
+### Step 2: Frontend
+
+In a new terminal, from the project root:
 
 ```bash
 cd frontend
 cp .env.example .env
-# Optional: set VITE_API_URL if backend is not on http://localhost:5000
+```
+
+If the backend is not at `http://localhost:5000`, set `VITE_API_URL` in `frontend/.env` to your backend URL. Then:
+
+```bash
 npm install
 npm run dev
 ```
 
-App runs at **http://localhost:5173**.
+The app runs at **http://localhost:5173**. Open this URL in a browser.
+
+### Step 3: Use the app
+
+- Sign up with name, email, and password (min 6 characters).
+- Create a board, add lists, add tasks, and assign them to users (create a second account in another browser/incognito to test assignment and notifications).
 
 ---
 
@@ -96,11 +136,21 @@ App runs at **http://localhost:5173**.
 
 ## Demo Credentials
 
-There are no seeded demo users. After starting backend and frontend:
+There are **no pre-seeded users**. Create accounts via **Sign up** after starting the app.
 
-1. Open **http://localhost:5173**
-2. Use **Sign up** to create an account (e.g. name, email, password ≥ 6 characters)
-3. You will be logged in and can create boards, lists, and tasks
+**Suggested demo accounts** (create these yourself for evaluation):
+
+| Role    | Name        | Email             | Password  |
+|---------|-------------|-------------------|-----------|
+| User 1  | Demo User   | `demo@example.com`   | `demo1234` |
+| User 2  | Demo User 2 | `demo2@example.com`  | `demo1234` |
+
+**Steps:**
+
+1. Open **http://localhost:5173** and sign up with User 1 credentials.
+2. Log out (or use an incognito window) and sign up with User 2 credentials.
+3. Log in as User 1, create a board, add a list and a task, and **assign the task to User 2**.
+4. Log in as User 2 (or open the app in another browser): you should see the **in-app notification** (“Demo User assigned you to …”) and can open **Assigned to me** (`/my-tasks`) to see the task.
 
 ---
 
@@ -150,6 +200,39 @@ Details: see `docs/realtime-sync.md`.
 
 ---
 
+## Architecture
+
+- **Frontend:** Single-page app (React + Vite). State with Zustand (`authStore`, `boardStore`, `notificationStore`). API calls via Axios; Socket.io client for real-time; routes: `/` (boards), `/board/:boardId`, `/my-tasks` (assigned to me), `/login`, `/signup`. Protected routes ensure the socket connects so the user receives assignment notifications on any page.
+- **Backend:** Express app with REST routes under `/api` (auth, users, boards, lists, tasks). Socket.io on the same HTTP server; JWT auth on connection; per-board rooms for task events and per-user rooms for assignment notifications. MongoDB via Mongoose; no server-side sessions.
+- **Data flow:** REST for CRUD; Socket.io for live task updates (board room) and assignment toasts (user room). Activity and notifications are persisted; the “Assigned to me” view uses the tasks API filtered by `assignedTo`.
+
+**Detailed architecture:**
+
+- [docs/frontend-architecture.md](docs/frontend-architecture.md) – SPA structure, Zustand, Axios, real-time handling, notifications
+- [docs/backend-architecture.md](docs/backend-architecture.md) – Express layout, REST design, auth, WebSockets, MongoDB
+
+---
+
+## API Documentation
+
+Full **REST API documentation** (endpoints, request/response formats, auth):  
+**[docs/api-contract.md](docs/api-contract.md)**
+
+Covers: health, auth (signup, login, me), users (list all), boards (CRUD, members, activity), lists, tasks (CRUD, move, **assigned-to-me**), and auth requirements.
+
+---
+
+## Assumptions and Trade-offs
+
+- **Single server:** Real-time works with one backend instance; multiple instances require a shared Socket.io adapter (e.g. Redis) for notifications and board updates to reach all clients.
+- **Best-effort real-time:** If a client misses an event (e.g. disconnect), the next load refetches from the API; no offline queue or conflict resolution.
+- **Auth:** JWT in localStorage for simplicity; for higher security, consider httpOnly cookies or short-lived tokens with refresh.
+- **No rate limiting or pre-seeded users:** Add rate limiting and optional seed script for production or stricter demos.
+
+**Full list:** [docs/scalability.md](docs/scalability.md) – horizontal scaling, WebSocket scaling, DB indexing, trade-offs and assumptions.
+
+---
+
 ## Running on Render (High Level)
 
 1. **Backend (Web Service)**
@@ -181,3 +264,16 @@ Details: see `docs/realtime-sync.md`.
 | [docs/api-contract.md](docs/api-contract.md) | REST endpoints, request/response, auth requirements |
 | [docs/realtime-sync.md](docs/realtime-sync.md) | Socket events, rooms, consistency |
 | [docs/scalability.md](docs/scalability.md) | Scaling, WebSockets, DB, trade-offs |
+
+---
+
+## Submission Checklist (For Evaluators)
+
+| Requirement | Where |
+|-------------|--------|
+| Complete project (frontend + backend) | Single repo: `frontend/` and `backend/` |
+| Detailed README with setup instructions | This file: **Local Setup (Detailed)**, **Environment Variables**, **Repository and Git** |
+| Architecture explanation | **Architecture** section above + [docs/frontend-architecture.md](docs/frontend-architecture.md), [docs/backend-architecture.md](docs/backend-architecture.md) |
+| API documentation | [docs/api-contract.md](docs/api-contract.md) |
+| Assumptions and trade-offs | **Assumptions and Trade-offs** section above + [docs/scalability.md](docs/scalability.md) |
+| Demo credentials | **Demo Credentials** section above (create via Sign up; suggested accounts listed) |
